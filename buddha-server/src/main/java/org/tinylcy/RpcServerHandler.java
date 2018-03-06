@@ -8,9 +8,7 @@ import org.tinylcy.concurrence.ServerThread;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.*;
 
 /**
  * Created by chenyangli.
@@ -18,6 +16,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 public class RpcServerHandler extends SimpleChannelInboundHandler<RpcRequest> {
 
     private Map<String, Object> handlerMap;
+    private static ThreadPoolExecutor threadPoolExecutor;
 
     public RpcServerHandler(Map<String, Object> handlerMap) {
         this.handlerMap = handlerMap;
@@ -26,8 +25,14 @@ public class RpcServerHandler extends SimpleChannelInboundHandler<RpcRequest> {
     @Override
     protected void channelRead0(ChannelHandlerContext context, RpcRequest request)
             throws Exception {
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-        executorService.execute(new ServerThread(context, request, handlerMap));
+        if (threadPoolExecutor == null) {
+            synchronized (RpcServer.class) {
+                if (threadPoolExecutor == null) {
+                    threadPoolExecutor = new ThreadPoolExecutor(16, 16, 600L, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(65536));
+                }
+            }
+        }
+        threadPoolExecutor.submit(new ServerThread(context, request, handlerMap));
     }
 
     @Override

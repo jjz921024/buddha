@@ -38,7 +38,7 @@ public class ServerThread implements Runnable {
         String className = request.getClassName();
         Object serviceBean = handlerMap.get(className);
         if (serviceBean == null) {
-
+            return null;
         }
         Method[] methods = serviceBean.getClass().getDeclaredMethods();
         Object result = null;

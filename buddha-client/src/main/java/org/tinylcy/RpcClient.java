@@ -9,7 +9,10 @@ import org.apache.log4j.Logger;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by chenyangli.
@@ -19,14 +22,15 @@ public class RpcClient {
     private static final Logger LOGGER = Logger.getLogger(RpcClient.class);
 
     private ServiceDiscovery discovery;
+    private static ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(16, 16, 600L, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(65536));
 
     public RpcClient(ServiceDiscovery discovery) {
         this.discovery = discovery;
     }
 
     public Object call(final Class<?> clazz, Method method, Object[] args) {
-        RpcRequest request = new RpcRequest(clazz.getName(),
-                method.getName(), method.getParameterTypes(), args);
+        RpcRequest request = new RpcRequest(clazz.getName(), method.getName(), method.getParameterTypes(), args);
+
         EventLoopGroup group = new NioEventLoopGroup();
         Bootstrap bootstrap = new Bootstrap();
         final RpcResponse response = new RpcResponse();
@@ -43,9 +47,11 @@ public class RpcClient {
                     }).option(ChannelOption.SO_KEEPALIVE, true);
 
             String connectString = discovery.discover();
+
             String[] tokens = connectString.split(":");
             String host = tokens[0];
             int port = Integer.parseInt(tokens[1]);
+
             ChannelFuture future = bootstrap.connect(new InetSocketAddress(host, port)).sync();
             future.channel().writeAndFlush(request).addListener(new ChannelFutureListener() {
                 public void operationComplete(ChannelFuture channelFuture) throws Exception {
